@@ -29,3 +29,63 @@ jobs:
       - run: npm test
       - name: Real-buyer e2e (packed packages)
         run: bash scripts/e2e.sh
+  docker-smoke:
+    name: Docker build and smoke
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image locally
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: allodic-smoke:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max,ignore-error=true
+
+      - name: Boot container
+        run: |
+          docker run -d \
+            --name allodic-smoke \
+            -p 127.0.0.1:8787:8787 \
+            allodic-smoke:${GITHUB_SHA}
+
+      - name: Verify API and bundled gate engines
+        run: |
+          ready=false
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent \
+              http://127.0.0.1:8787/catalog >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" != true ]; then
+            echo "Container did not become ready within 60 seconds"
+            exit 1
+          fi
+
+          curl --fail --show-error --silent \
+            http://127.0.0.1:8787/catalog >/dev/null
+
+          docker exec allodic-smoke sh -c \
+            'agentskills --help >/dev/null && skillspector --version'
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs allodic-smoke || true
+
+      - name: Remove container
+        if: always()
+        run: docker rm -f allodic-smoke || true

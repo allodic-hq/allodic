@@ -6,7 +6,7 @@
 #       -H "Accept: application/vnd.oci.image.index.v1+json" \
 #       https://registry-1.docker.io/v2/library/node/manifests/22-slim | grep -i digest
 # node:22-slim as of 2026-08-02:
-FROM node@sha256:f32b81066cde10a75dbac96646099533316d94bac4150c55da1636e1f0ffdc46
+FROM node:22.23.2-trixie-slim@sha256:db8a96a63e5264607ada2d206758876ebbed6a12be2ada7517793cbfb0c2a29c
 WORKDIR /app
 
 # Authoritative external gate engines, both preferred over builtin fallbacks:
@@ -16,6 +16,7 @@ WORKDIR /app
 # image can never carry different engine versions than the ones tests passed on.
 COPY scripts/gate-engines.txt scripts/
 RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip git \
+  && python3 -c "import sys; assert (3, 12) <= sys.version_info < (3, 15), sys.version" \
   && pip3 install --break-system-packages --no-cache-dir -r scripts/gate-engines.txt \
   && apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
