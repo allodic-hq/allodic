@@ -1,0 +1,29 @@
+{
+  "name": "allodic-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sell your agent skills direct. Own your buyers. Keep ~97%.",
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "packages/cli",
+    "packages/server"
+  ],
+  "scripts": {
+    "test": "node scripts/check-versions.js && node scripts/check-secrets.js && node scripts/check-telemetry-config.js && for f in packages/core/test/*.test.js; do node $f || exit 1; done && node --test packages/server/test/*.test.js && node --test packages/cli/test/*.test.js",
+    "server": "node packages/server/bin/allodic-server.js",
+    "e2e": "bash scripts/e2e.sh"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/allodic-hq/allodic.git"
+  },
+  "bugs": {
+    "url": "https://github.com/allodic-hq/allodic/issues"
+  },
+  "homepage": "https://github.com/allodic-hq/allodic#readme"
+}

@@ -1,0 +1,117 @@
+name: publish-npm
+# Publishes the three packages on every version tag, in DEPENDENCY ORDER:
+#
+#   1. @allodic/core     (dependency of both others, pinned by exact version)
+#   2. @allodic/server
+#   3. allodic           (the CLI — what `npx allodic@alpha` resolves)
+#
+# The order is load-bearing: both dependents pin @allodic/core at the exact
+# release version. Publish the CLI first and `npx allodic@alpha` resolves the
+# CLI but not its dependency — the tag exists, the image exists, and
+# launch-day installs fail. Core goes first, always.
+#
+# Idempotent: each package is skipped if name@version already exists on the
+# registry, so a partially-failed run can be re-run safely to publish the rest.
+# Published with npm provenance (id-token) — the same verify-don't-trust
+# standard the product applies to skills. Dist-tag and access come from each
+# package's publishConfig (prereleases carry tag=alpha; never `latest`).
+#
+# Requires: NPM_TOKEN secret (automation token with publish rights on the
+# allodic package and @allodic scope).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # npm --provenance
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['22.13.0', '22'] # claimed floor + current line
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install official gate engines (pinned)
+        run: pip install --break-system-packages -r scripts/gate-engines.txt
+      - run: npm ci
+      - run: npm test
+      - run: bash scripts/e2e.sh
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Release gate — tag must match the package version (shared with publish-image)
+        run: bash scripts/check-release-tag.sh
+      - name: Telemetry configuration gate (endpoint, public token, allowlist, packaging)
+        run: node scripts/check-telemetry-config.js
+      - name: Publish in dependency order (idempotent, with provenance)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          # ORDER MATTERS: core is the dependency both others pin exactly.
+          for entry in "@allodic/core=packages/core" "@allodic/server=packages/server" "allodic=packages/cli"; do
+            NAME="${entry%%=*}"; DIR="${entry#*=}"
+            if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+              echo "= $NAME@$VERSION already on the registry — skipping (idempotent re-run)"
+              continue
+            fi
+            echo "+ publishing $NAME@$VERSION from $DIR"
+            npm publish --workspace "$DIR" --provenance
+          done
+
+  # The launch-day failure this workflow exists to prevent, tested directly:
+  # a CLEAN machine resolves the CLI and its internal dependency FROM THE
+  # PUBLIC REGISTRY — no checkout, no workspaces, no cache to hide behind.
+  smoke:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # only to read the version; smoke runs outside the repo
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for registry propagation
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          for pkg in "@allodic/core" "@allodic/server" "allodic"; do
+            for i in $(seq 1 30); do
+              npm view "$pkg@$VERSION" version >/dev/null 2>&1 && break
+              [ "$i" = 30 ] && { echo "::error::$pkg@$VERSION never appeared on the registry"; exit 1; }
+              sleep 10
+            done
+            echo "✓ $pkg@$VERSION visible"
+          done
+      - name: npx resolves the CLI and its dependency from the registry
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          cd "$(mktemp -d)" # clean dir: nothing local can satisfy the resolution
+          GOT=$(npx -y "allodic@$VERSION" --version)
+          [ "$GOT" = "$VERSION" ] || { echo "::error::npx allodic@$VERSION reports '$GOT'"; exit 1; }
+          npx -y "allodic@$VERSION" help | grep -q "sell your agent skills" || { echo "::error::CLI help did not render"; exit 1; }
+          echo "✓ npx allodic@$VERSION runs from the public registry"
+      - name: Server package installs and its bin resolves
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          cd "$(mktemp -d)"
+          npm init -y >/dev/null
+          npm install "@allodic/server@$VERSION"
+          test -e node_modules/.bin/allodic-server
+          node -e "import('@allodic/core').then(m => { if (!m.verifyBundleChain) throw new Error('core API missing'); console.log('✓ @allodic/core resolves as a transitive dependency'); })"

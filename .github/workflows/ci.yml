@@ -1,0 +1,31 @@
+name: ci
+# Full gate on every push and PR: version coherence, core + server route
+# tests (Stripe webhook forgery/replay, eval gate, finance), spec-validator
+# parity against the official skills-ref, live SkillSpector scans, and the
+# real-buyer e2e (packed packages, `allodic add`, key pinning, revocation).
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 22.13.0 is the CLAIMED floor (node:sqlite; see engines + DEPLOY.md) —
+        # it is tested, not assumed. '22' is the current line users actually get.
+        node-version: ['22.13.0', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install official gate engines (pinned; spec parity + live scan tests)
+        run: pip install --break-system-packages -r scripts/gate-engines.txt
+      # npm ci: install EXACTLY the committed lockfile or fail — CI must never
+      # green-light a dependency tree that differs from the one in the repo.
+      - run: npm ci
+      - run: npm test
+      - name: Real-buyer e2e (packed packages)
+        run: bash scripts/e2e.sh

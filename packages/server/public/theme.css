@@ -1,0 +1,29 @@
+/* allodic — one theme, every page. Tokens defined once; pages keep only
+   their own layout styles. Dark-first, light via prefers-color-scheme. */
+:root{
+  --bg:#0E1013; --pagebg:#0E1013; --panel:#171A1E; --paper:#171A1E;
+  --ink:#ECEAE4; --ink-soft:#9BA0A8; --soft:#9BA0A8;
+  --stamp:#3DDC97; --stamp-dim:#155E43; --stamp-soft:#153C2E;
+  --rule:#2A2E34; --edge:#3A3F46; --hazard:#FF7A66;
+  --term:#0A0C0E; --termtext:#F2EFE7; --scallop:var(--stamp);
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  --sans:"Avenir Next","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: light){:root{
+  --bg:#F7F6F2; --pagebg:#F7F6F2; --panel:#FFFFFF; --paper:#FFFFFF;
+  --ink:#16181B; --ink-soft:#5A5E66; --soft:#565B63;
+  --stamp:#146B4A; --stamp-dim:#8FCDB2; --stamp-soft:#E2EFE8;
+  --rule:#D8D6CF; --edge:#16181B; --hazard:#A33B2E;
+  --term:#16181B; --termtext:#F2EFE7;
+}}
+/* shared terminal/command block — always dark terminal, always readable */
+.cmd{background:var(--term);color:var(--termtext);border:1px solid var(--rule);
+  font-family:var(--mono);font-size:12.5px;padding:14px;line-height:1.7;
+  white-space:pre;overflow-x:auto;border-radius:2px}
+.cmd .g{color:var(--stamp)}
+/* inline code chips — readable on any surface, both schemes */
+code{font-family:var(--mono);background:var(--rule);color:var(--ink);
+  padding:1px 5px;border-radius:3px;font-size:.92em}
+.devbanner{background:var(--hazard);color:#0B0D0F;font-family:var(--mono);font-size:12px;
+  padding:10px 12px;margin-bottom:16px;border-radius:2px;font-weight:600;line-height:1.4}
+.devbanner.err{background:var(--rule);color:var(--ink);border:1px solid var(--hazard)}

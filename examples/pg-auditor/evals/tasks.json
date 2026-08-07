@@ -1,0 +1,8 @@
+[
+  { "id": "unsafe-index",
+    "prompt": "Review this migration: CREATE INDEX idx_email ON orders(email);",
+    "mustMention": ["CONCURRENTLY"], "mustNotMention": ["looks safe"] },
+  { "id": "fk-two-step",
+    "prompt": "Review: ALTER TABLE orders ADD CONSTRAINT fk FOREIGN KEY (uid) REFERENCES users(id);",
+    "mustMention": ["NOT VALID"] }
+]

@@ -1,0 +1,113 @@
+name: publish-image
+# Pushes ghcr.io/allodic-hq/allodic on every version tag.
+#   v0.1.0-alpha.1 -> 0.1.0-alpha.1, alpha, sha-<short>   (prerelease: never `latest`)
+#   v0.1.0         -> 0.1.0, latest, sha-<short>          (latest=auto: stable tags only)
+# Built in public, from the public repo, with provenance attestation —
+# the same verify-don't-trust standard the product applies to skills.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  # Release gate FIRST (shared with publish-npm.yml): a version tag whose
+  # packages disagree must not build or push ANYTHING — otherwise npm refuses
+  # while ghcr happily ships :0.1.0 / :latest containing alpha packages.
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bash scripts/check-release-tag.sh
+
+  # No image ships untested: full suite + real-buyer e2e first, then a
+  # container smoke test of the exact image, and only then the push.
+  test:
+    needs: gate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['22.13.0', '22'] # claimed floor + current line
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install official gate engines (pinned)
+        run: pip install --break-system-packages -r scripts/gate-engines.txt
+      - run: npm ci
+      - run: npm test
+      - run: bash scripts/e2e.sh
+
+  smoke:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image for smoke test (amd64, local only)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: allodic-smoke:ci
+      - name: Boot container and health-check the API
+        run: |
+          docker run -d --name smoke -p 8787:8787 allodic-smoke:ci
+          for i in $(seq 1 30); do curl -sf http://localhost:8787/catalog >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:8787/catalog
+          # gate engines must be present in the image
+          docker exec smoke sh -c "agentskills --help >/dev/null && skillspector --version"
+          docker logs smoke | grep -vq "Error" || true
+
+  publish:
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Release gate (re-checked at the point of push)
+        run: bash scripts/check-release-tag.sh
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: |
+            latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+            type=raw,value=alpha,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

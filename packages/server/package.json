@@ -1,0 +1,46 @@
+{
+  "name": "@allodic/server",
+  "version": "0.1.0",
+  "description": "allodic server: self-hostable storefront, checkout, licensed delivery, updates.",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "allodic-server": "bin/allodic-server.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "public"
+  ],
+  "dependencies": {
+    "@allodic/core": "0.1.0",
+    "express": "^5.1.0",
+    "nodemailer": "^9.0.4",
+    "stripe": "^18.5.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "the allodic authors",
+  "homepage": "https://github.com/allodic-hq/allodic#readme",
+  "bugs": {
+    "url": "https://github.com/allodic-hq/allodic/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/allodic-hq/allodic.git",
+    "directory": "packages/server"
+  },
+  "keywords": [
+    "agent-skills",
+    "skills",
+    "registry",
+    "storefront",
+    "stripe",
+    "self-hosted"
+  ]
+}

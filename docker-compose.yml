@@ -1,0 +1,40 @@
+# allodic registry + storefront — one-command deploy
+#   BASE_URL=https://yoursite.dev docker compose up -d --build
+#   docker compose logs allodic | grep "admin key"   # save it on first boot
+services:
+  allodic:
+    build: .
+    # once images are published (CI on version tags):
+    # image: ghcr.io/allodic-hq/allodic:latest
+    ports:
+      - "${PORT:-8787}:8787"
+    volumes:
+      - allodic-data:/data
+    environment:
+      ALLODIC_DATA: /data
+      BASE_URL: ${BASE_URL:-http://localhost:8787}
+      # payments — leave unset: FREE skills work fully; PAID checkout returns
+      # 503 until BOTH Stripe vars are set (key without webhook secret refuses
+      # to boot). Local dry-runs of paid flows need the explicitly insecure
+      # ALLODIC_INSECURE_DEV_PAYMENTS=1 — grants paid skills without charge,
+      # loudly flagged, never in production.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      # activation email — required before selling for real money
+      SMTP_URL: ${SMTP_URL:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      # optional external malicious-content scanner (see docs/DEPLOY.md)
+      EXTERNAL_SCAN_URL: ${EXTERNAL_SCAN_URL:-}
+      EXTERNAL_SCAN_KEY: ${EXTERNAL_SCAN_KEY:-}
+      # local development ONLY — returns activation codes in-response; never in prod
+      ALLODIC_DEV_CODES: ${ALLODIC_DEV_CODES:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:'+(process.env.PORT||8787)+'/catalog').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  allodic-data:

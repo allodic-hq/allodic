@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark light">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{name}} — allodic</title>
+<link rel="stylesheet" href="/assets/theme.css">
+<style>
+    *{box-sizing:border-box;margin:0}
+  body{background:var(--pagebg);background-image:repeating-linear-gradient(0deg,transparent,transparent 31px,color-mix(in srgb,var(--rule) 40%,transparent) 32px);font-family:var(--sans);color:var(--ink);
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .receipt{background:var(--paper);width:min(430px,100%);position:relative;
+           box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  /* signature element: perforated tear edges, like a ticket issued from a roll */
+  .receipt::before,.receipt::after{content:"";position:absolute;left:0;right:0;height:12px;
+    background-image:radial-gradient(circle at 8px 0,var(--scallop) 5px,transparent 5.5px);
+    background-size:16px 12px;background-repeat:repeat-x}
+  .receipt::before{top:-1px}
+  .receipt::after{bottom:-1px;transform:scaleY(-1)}
+  .pad{padding:34px 30px 30px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--ink-soft);
+           text-transform:uppercase;display:flex;justify-content:space-between}
+  h1{font-size:26px;font-weight:600;letter-spacing:-.01em;margin:10px 0 6px}
+  .desc{color:var(--ink-soft);font-size:14.5px;line-height:1.55;margin-bottom:22px}
+  .ledger{border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);
+          font-family:var(--mono);font-size:13px;margin-bottom:22px}
+  .row{display:flex;justify-content:space-between;padding:9px 2px;border-bottom:1px dashed var(--rule)}
+  .row:last-child{border-bottom:none}
+  .row b{font-weight:700}
+  label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+        text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px}
+  input{width:100%;padding:12px 12px;font-size:15px;font-family:var(--mono);
+        border:1.5px solid var(--rule);background:var(--paper);color:var(--ink);border-radius:0;outline:none}
+  input:focus-visible{box-shadow:0 0 0 3px var(--stamp-soft);border-color:var(--stamp)}
+  button{width:100%;margin-top:14px;padding:14px;font-size:15px;font-weight:600;
+         font-family:var(--sans);background:var(--stamp);color:#0B0D0F;
+         border:none;cursor:pointer;letter-spacing:.02em}
+  button:hover{filter:brightness(1.1)}
+  button:focus-visible{outline:3px solid var(--stamp);outline-offset:2px}
+  button[disabled]{opacity:.55;cursor:wait}
+  .fine{margin-top:16px;font-size:12px;color:var(--ink-soft);line-height:1.6}
+  /* issued state */
+  .issued{display:none}
+  .stamp{display:inline-block;font-family:var(--mono);font-weight:700;font-size:13px;
+         letter-spacing:.18em;color:var(--stamp);border:2.5px solid var(--stamp);
+         padding:6px 12px;transform:rotate(-4deg);margin:2px 0 16px;
+         text-transform:uppercase;background:var(--stamp-soft)}
+  .error{display:none;margin-top:12px;font-family:var(--mono);font-size:12.5px;
+         color:var(--hazard);border-left:3px solid var(--hazard);padding-left:10px}
+  @media (prefers-reduced-motion:no-preference){
+    .issued.show{animation:settle .35s ease-out}
+    @keyframes settle{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body>
+<main class="receipt">
+  <div class="pad">
+    <div class="eyebrow"><span>allodic · license</span><span>№ {{slug}}</span></div>
+    <h1>{{name}}</h1>
+    <p class="desc">{{description}}</p>
+    {{paymentBanner}}
+
+    <div class="ledger">
+      <div class="row"><span>version</span><span>{{version}}</span></div>
+      <div class="row"><span>sold by</span><span>{{creator}}</span></div>
+      <div class="row"><span>updates</span><span>future versions included</span></div>
+      <div class="row"><b>total</b><b>{{price}}</b></div>
+    </div>
+
+    <div class="ledger" id="verify" style="margin-top:-6px">
+      <div class="row"><span>digest</span><span id="v-digest">…</span></div>
+      <div class="row"><span>safety scan</span><span id="v-scan">…</span></div>
+      <div class="row"><span>evals</span><span id="v-evals">…</span></div>
+      <div class="row"><span>runs with</span><span id="v-compat">…</span></div>
+      <div class="row"><span>needs</span><span id="v-req">…</span></div>
+    </div>
+
+    <form id="buy">
+      <label for="email">Email for your license</label>
+      <input id="email" type="email" required placeholder="you@example.com" autocomplete="email">
+      <button type="submit" id="go">Buy license</button>
+      <p class="error" id="err"></p>
+      <p class="fine">Your copy is fingerprinted to this purchase. Install anywhere with
+        <code>npx allodic add</code>. Refunds honored; a full refund revokes the license.</p>
+    </form>
+
+    <section class="issued" id="issued">
+      <span class="stamp">License issued</span>
+      <label>Install with</label>
+      <div class="cmd" id="cmd"></div>
+      <p class="fine">Keep the token from the response private — it is your license.
+        Updates arrive with <code>npx allodic update</code>.</p>
+    </section>
+  </div>
+</main>
+<script>
+  (async () => {
+    try {
+      const s = await (await fetch('/s/{{slug}}')).json();
+      const c = s.capability; if (!c) return;
+      const q = (id, v) => document.getElementById(id).textContent = v;
+      q('v-digest', c.digest.slice(0, 12));
+      q('v-scan', c.scan ? (c.scan.criticals ? 'FINDINGS' : c.scan.findings ? 'clean, ' + c.scan.findings + ' notes' : 'clean') : 'unscanned');
+      q('v-evals', c.evals.length ? c.evals.map(e => e.agent + ' ' + e.passed + '/' + e.total).join(' · ') + ' — signed' : 'none published');
+      q('v-compat', (c.agentSupport ?? []).length ? c.agentSupport.map(x => x.agent + (x.evidence === 'evals-passing' ? ' ✓' : ' (declared)')).join(' · ') : '—');
+      q('v-req', [...c.requires.mcp, ...c.requires.tools].join(', ') || 'no external tools');
+    } catch {}
+  })();
+  const form = document.getElementById('buy');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const go = document.getElementById('go'); const err = document.getElementById('err');
+    go.disabled = true; err.style.display = 'none';
+    try {
+      const r = await fetch('/api/checkout/{{slug}}', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: document.getElementById('email').value }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'checkout failed');
+      if (data.status === 'redirect') { location.href = data.url; return; }
+      form.style.display = 'none';
+      const issued = document.getElementById('issued');
+      document.getElementById('cmd').textContent =
+        data.install + '\n# token: ' + data.token;
+      issued.style.display = 'block'; issued.classList.add('show');
+    } catch (ex) {
+      err.textContent = ex.message; err.style.display = 'block'; go.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

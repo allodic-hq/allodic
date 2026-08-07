@@ -1,0 +1,31 @@
+# When docs change on main, ping the Cloudflare Pages deploy hook for
+# allodic-web. The website repo carries NO copy of these files: its build
+# step pulls docs/ + README.md from this repo at deploy time, so this ping
+# is the entire synchronization mechanism — no copy-paste, no drift.
+#
+# Setup (maintainer): create a deploy hook in the Cloudflare Pages project
+# for allodic-web, then add its URL as the repository secret
+# CF_PAGES_DEPLOY_HOOK. Until the secret exists this workflow no-ops.
+name: docs → allodic.dev
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+
+jobs:
+  redeploy-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger allodic-web rebuild
+        env:
+          HOOK: ${{ secrets.CF_PAGES_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "CF_PAGES_DEPLOY_HOOK not configured — skipping (docs will sync on the next manual deploy)"
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" >/dev/null
+          echo "✓ allodic.dev rebuild triggered"

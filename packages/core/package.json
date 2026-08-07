@@ -1,0 +1,42 @@
+{
+  "name": "@allodic/core",
+  "version": "0.1.0",
+  "description": "allodic core: signing, fingerprinting, manifests, scanning, compliance.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "yaml": "^2.6.0"
+  },
+  "author": "the allodic authors",
+  "homepage": "https://github.com/allodic-hq/allodic#readme",
+  "bugs": {
+    "url": "https://github.com/allodic-hq/allodic/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/allodic-hq/allodic.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "agent-skills",
+    "skills",
+    "signing",
+    "fingerprinting",
+    "watermark",
+    "validation",
+    "evals"
+  ]
+}

@@ -1,0 +1,10 @@
+# Gate engines — ONE pin point, consumed by BOTH .github/workflows/* and the
+# Dockerfile, so CI and the shipped image cannot drift apart.
+#
+# Reproducibility rules (P1):
+#   - skills-ref pinned by exact version (verify updates: `pip index versions skills-ref`)
+#   - SkillSpector pinned by commit SHA, not tag — tags can move
+#
+# Bump deliberately, in one place, with the parity tests green.
+skills-ref==0.1.1
+skillspector @ git+https://github.com/NVIDIA/skillspector.git@3f11bfa4117ed8beff02d45f660f557489f6bbe5

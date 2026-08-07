@@ -1,0 +1,42 @@
+{
+  "name": "allodic",
+  "version": "0.1.0",
+  "description": "Sell your agent skills direct. Own your buyers. Keep ~97%.",
+  "type": "module",
+  "bin": {
+    "allodic": "bin/allodic.js"
+  },
+  "files": [
+    "bin",
+    "lib"
+  ],
+  "dependencies": {
+    "@allodic/core": "0.1.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "the allodic authors",
+  "homepage": "https://github.com/allodic-hq/allodic#readme",
+  "bugs": {
+    "url": "https://github.com/allodic-hq/allodic/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/allodic-hq/allodic.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "agent-skills",
+    "skills",
+    "cli",
+    "marketplace",
+    "sell",
+    "license",
+    "claude"
+  ]
+}
