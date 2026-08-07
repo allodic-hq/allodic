@@ -1,6 +1,6 @@
 {
   "name": "@allodic/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "allodic core: signing, fingerprinting, manifests, scanning, compliance.",
   "type": "module",
   "main": "src/index.js",

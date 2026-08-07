@@ -1,6 +1,6 @@
 {
   "name": "allodic",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Sell your agent skills direct. Own your buyers. Keep ~97%.",
   "type": "module",
   "bin": {
@@ -11,7 +11,7 @@
     "lib"
   ],
   "dependencies": {
-    "@allodic/core": "0.1.0"
+    "@allodic/core": "0.1.1"
   },
   "engines": {
     "node": ">=22.13.0"
